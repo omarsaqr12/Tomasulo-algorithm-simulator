@@ -3,13 +3,16 @@ from tkinter import ttk, scrolledtext, messagebox
 import re
 from collections import defaultdict, deque
 
-# Enhanced color theme
+# Complete color theme
 COLORS = {
     'bg': '#f0f0f0',
     'fg': '#333333',
     'accent': '#007acc',
     'accent_hover': '#005c99',
     'success': '#28a745',
+    'success_hover': '#218838',
+    'warning': '#ffc107',
+    'error': '#dc3545',
     'header_bg': '#e9ecef',
     'alternate_row': '#f8f9fa'
 }
@@ -44,7 +47,8 @@ class ReservationStation:
         self.a = None  # Offset or address
         self.cycles_left = 0
         self.executing = False
-        self.wrote_result = False  # Track if result was written
+        self.wrote_result = False
+        self.just_wrote = False
 
     def clear(self):
         self.busy = False
@@ -53,6 +57,7 @@ class ReservationStation:
         self.cycles_left = 0
         self.executing = False
         self.wrote_result = False
+        self.just_wrote = False
 
     def __str__(self):
         if not self.busy:
@@ -66,16 +71,16 @@ class ReservationStation:
                 f"{status} "
                 f"CyclesLeft={self.cycles_left}")
 
-# Enhanced Simulator class with better GUI
+# Simulator class with complete simulation logic
 class TomasuloSimulator:
     def __init__(self, root):
         self.root = root
-        self.root.title("Tomasulo Simulator - Enhanced GUI")
+        self.root.title("Tomasulo Simulator - Complete Simulation")
         
         # Set up styling
         self.setup_styles()
         
-        # Enhanced state
+        # Complete state
         self.cycle = 1
         self.program = []
         self.current_pc = 0
@@ -87,8 +92,9 @@ class TomasuloSimulator:
         self.completed_instructions = 0
         self.branch_count = 0
         self.mispredictions = 0
+        self.max_cycles = 1000  # Maximum number of cycles to prevent infinite loops
         
-        # Enhanced reservation stations with configurable parameters
+        # Complete reservation stations
         self.res_stations = {}
         self.op_to_rs = {
             'LOAD': 'LOAD', 'STORE': 'STORE', 'BEQ': 'BEQ',
@@ -97,17 +103,16 @@ class TomasuloSimulator:
             'NOR': 'NOR', 'MUL': 'MUL'
         }
         
-        # Hardware configuration entries
         self.hw_config_entries = {}
+        self.debug_trace = True
         
-        self.setup_enhanced_gui()
+        self.setup_complete_gui()
 
     def setup_styles(self):
-        """Set up enhanced styling"""
+        """Complete styling setup"""
         style = ttk.Style()
         style.theme_use('clam')
         
-        # Configure custom styles with colors
         style.configure("Treeview",
             background=COLORS['bg'],
             foreground=COLORS['fg'],
@@ -122,17 +127,11 @@ class TomasuloSimulator:
         style.map("Treeview",
             background=[('selected', COLORS['accent'])],
             foreground=[('selected', 'white')])
-        
-        style.configure("TButton",
-            padding=6,
-            background=COLORS['accent'],
-            foreground='white')
 
-    def setup_enhanced_gui(self):
-        # Configure root window background
+    def setup_complete_gui(self):
+        # Complete GUI setup similar to day2 but with reservation stations, registers, and memory displays
         self.root.configure(bg=COLORS['bg'])
         
-        # Main scrollable frame
         main_canvas = tk.Canvas(self.root, bg=COLORS['bg'])
         main_canvas.pack(fill=tk.BOTH, expand=True)
         
@@ -143,32 +142,24 @@ class TomasuloSimulator:
         main_frame = ttk.Frame(main_canvas)
         main_canvas.create_window((0, 0), window=main_frame, anchor="nw")
         
-        # Hardware Configuration Frame
+        # Hardware Configuration (same as day2)
         hw_config_frame = ttk.LabelFrame(main_frame, text="Hardware Configuration", padding="10")
         hw_config_frame.pack(fill=tk.X, expand=False, padx=10, pady=10)
         
-        # Create configuration for each instruction type
         instruction_types = [
-            ('LOAD', 'Load/Store'),
-            ('STORE', 'Load/Store'),
-            ('BEQ', 'Branch'),
-            ('CALL_RET', 'Call/Return'),
-            ('ADD_SUB', 'Add/Subtract'),
-            ('NOR', 'NOR'),
-            ('MUL', 'Multiply')
+            ('LOAD', 'Load/Store'), ('STORE', 'Load/Store'), ('BEQ', 'Branch'),
+            ('CALL_RET', 'Call/Return'), ('ADD_SUB', 'Add/Subtract'), ('NOR', 'NOR'), ('MUL', 'Multiply')
         ]
 
-        for i, (op_type, display_name) in enumerate(instruction_types):
+        for op_type, display_name in instruction_types:
             row_frame = ttk.Frame(hw_config_frame)
             row_frame.pack(fill=tk.X, pady=2)
 
             ttk.Label(row_frame, text=f"{display_name}:").pack(side=tk.LEFT, padx=5)
-
             ttk.Label(row_frame, text="RS Count:").pack(side=tk.LEFT, padx=5)
             rs_entry = ttk.Entry(row_frame, width=5)
             rs_entry.pack(side=tk.LEFT, padx=5)
             
-            # Default values
             default_rs = {'LOAD': '2', 'STORE': '2', 'BEQ': '2', 'CALL_RET': '1', 'ADD_SUB': '4', 'NOR': '2', 'MUL': '2'}
             rs_entry.insert(0, default_rs[op_type])
 
@@ -176,24 +167,21 @@ class TomasuloSimulator:
             cycles_entry = ttk.Entry(row_frame, width=5)
             cycles_entry.pack(side=tk.LEFT, padx=5)
             
-            # Default cycles
             default_cycles = {'LOAD': '6', 'STORE': '6', 'BEQ': '1', 'CALL_RET': '1', 'ADD_SUB': '2', 'NOR': '1', 'MUL': '10'}
             cycles_entry.insert(0, default_cycles[op_type])
 
             self.hw_config_entries[op_type] = (rs_entry, cycles_entry)
 
-        # Enhanced Input frame
+        # Input frame (same as day2)
         input_frame = ttk.Frame(main_frame, padding="10")
         input_frame.pack(fill=tk.X, expand=False, padx=10, pady=10)
         
-        # Program input
         input_left = ttk.Frame(input_frame)
         input_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
         ttk.Label(input_left, text="Assembly Program (one per line):").pack(anchor=tk.W)
         self.program_text = scrolledtext.ScrolledText(input_left, width=50, height=10)
         self.program_text.pack(fill=tk.BOTH, expand=True)
         
-        # Starting PC
         input_middle = ttk.Frame(input_frame)
         input_middle.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
         ttk.Label(input_middle, text="Starting PC:").pack(anchor=tk.W)
@@ -201,7 +189,6 @@ class TomasuloSimulator:
         self.start_pc_entry.pack(fill=tk.X, pady=(5, 0))
         self.start_pc_entry.insert(0, "0")
         
-        # Memory input
         input_right = ttk.Frame(input_frame)
         input_right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
         ttk.Label(input_right, text="Memory (addr:value, one per line):").pack(anchor=tk.W)
@@ -212,13 +199,11 @@ class TomasuloSimulator:
         instr_frame = ttk.LabelFrame(main_frame, text="Instructions")
         instr_frame.pack(fill=tk.X, expand=False, padx=10, pady=10)
         
-        # Create instructions Treeview with scrollbars
         instr_scroll_frame = ttk.Frame(instr_frame)
         instr_scroll_frame.pack(fill=tk.BOTH, expand=True)
         
         instr_h_scroll = ttk.Scrollbar(instr_scroll_frame, orient="horizontal")
         instr_h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
-        
         instr_v_scroll = ttk.Scrollbar(instr_scroll_frame, orient="vertical")
         instr_v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         
@@ -230,24 +215,19 @@ class TomasuloSimulator:
         instr_h_scroll.config(command=self.instr_tree.xview)
         instr_v_scroll.config(command=self.instr_tree.yview)
         
-        # Configure columns
-        self.instr_tree.heading("#0", text="")
-        self.instr_tree.heading("PC", text="PC")
-        self.instr_tree.heading("Instruction", text="Instruction")
-        self.instr_tree.heading("Issue", text="Issue")
-        self.instr_tree.heading("StartExec", text="Start Exec")
-        self.instr_tree.heading("EndExec", text="End Exec")
-        self.instr_tree.heading("Write", text="Write")
+        # Configure instruction tree columns
+        for col, text in [("#0", ""), ("PC", "PC"), ("Instruction", "Instruction"), 
+                         ("Issue", "Issue"), ("StartExec", "Start Exec"), ("EndExec", "End Exec"), ("Write", "Write")]:
+            self.instr_tree.heading(col, text=text)
         
+        # Set column widths
         self.instr_tree.column("#0", width=20, stretch=tk.NO)
         self.instr_tree.column("PC", width=60, stretch=tk.NO)
         self.instr_tree.column("Instruction", width=150, stretch=tk.YES)
-        self.instr_tree.column("Issue", width=60, stretch=tk.NO)
-        self.instr_tree.column("StartExec", width=80, stretch=tk.NO)
-        self.instr_tree.column("EndExec", width=80, stretch=tk.NO)
-        self.instr_tree.column("Write", width=60, stretch=tk.NO)
+        for col in ["Issue", "StartExec", "EndExec", "Write"]:
+            self.instr_tree.column(col, width=80, stretch=tk.NO)
 
-        # Enhanced buttons with styling
+        # Buttons
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
         
@@ -255,7 +235,7 @@ class TomasuloSimulator:
         ttk.Button(button_frame, text="Step", command=self.step).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Run to End", command=self.run_to_end).pack(side=tk.LEFT, padx=5)
 
-        # Status frame with cycle and PC display
+        # Status and displays
         status_frame = ttk.Frame(main_frame)
         status_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
@@ -266,13 +246,72 @@ class TomasuloSimulator:
         self.pc_label = ttk.Label(status_bar, text="Current PC: 0")
         self.pc_label.pack(side=tk.LEFT)
 
+        # Reservation stations display
+        rs_frame = ttk.LabelFrame(status_frame, text="Reservation Stations")
+        rs_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        
+        rs_scroll_frame = ttk.Frame(rs_frame)
+        rs_scroll_frame.pack(fill=tk.BOTH, expand=True)
+        
+        rs_h_scroll = ttk.Scrollbar(rs_scroll_frame, orient="horizontal")
+        rs_h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+        rs_v_scroll = ttk.Scrollbar(rs_scroll_frame, orient="vertical")
+        rs_v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        self.rs_tree = ttk.Treeview(rs_scroll_frame, columns=("Name", "Busy", "Op", "Vj", "Vk", "Qj", "Qk", "A", "Status", "Cycles"),
+                                   xscrollcommand=rs_h_scroll.set, yscrollcommand=rs_v_scroll.set)
+        self.rs_tree.pack(fill=tk.BOTH, expand=True)
+        
+        rs_h_scroll.config(command=self.rs_tree.xview)
+        rs_v_scroll.config(command=self.rs_tree.yview)
+        
+        # Configure RS tree
+        rs_columns = [("#0", "Type", 100), ("Name", "Name", 80), ("Busy", "Busy", 50), ("Op", "Op", 60),
+                     ("Vj", "Vj", 60), ("Vk", "Vk", 60), ("Qj", "Qj", 60), ("Qk", "Qk", 60),
+                     ("A", "A", 60), ("Status", "Status", 80), ("Cycles", "Cycles Left", 80)]
+        
+        for col, text, width in rs_columns:
+            self.rs_tree.heading(col, text=text)
+            self.rs_tree.column(col, width=width, stretch=tk.NO if col != "#0" else tk.NO)
+
+        # Bottom frame with registers and memory
+        bottom_frame = ttk.Frame(status_frame)
+        bottom_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Registers
+        reg_frame = ttk.LabelFrame(bottom_frame, text="Registers")
+        reg_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        
+        reg_scroll_frame = ttk.Frame(reg_frame)
+        reg_scroll_frame.pack(fill=tk.BOTH, expand=True)
+        
+        self.reg_tree = ttk.Treeview(reg_scroll_frame, columns=("Value", "Qi"))
+        self.reg_tree.pack(fill=tk.BOTH, expand=True)
+        
+        self.reg_tree.heading("#0", text="Register")
+        self.reg_tree.heading("Value", text="Value")
+        self.reg_tree.heading("Qi", text="Qi")
+        
+        # Memory
+        mem_frame = ttk.LabelFrame(bottom_frame, text="Memory (non-zero)")
+        mem_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
+        
+        mem_scroll_frame = ttk.Frame(mem_frame)
+        mem_scroll_frame.pack(fill=tk.BOTH, expand=True)
+        
+        self.mem_tree = ttk.Treeview(mem_scroll_frame, columns=("Value",))
+        self.mem_tree.pack(fill=tk.BOTH, expand=True)
+        
+        self.mem_tree.heading("#0", text="Address")
+        self.mem_tree.heading("Value", text="Value")
+
         # Update canvas scroll region
         def configure_scroll_region(event):
             main_canvas.configure(scrollregion=main_canvas.bbox("all"))
         main_frame.bind('<Configure>', configure_scroll_region)
 
     def parse_instruction(self, line, pc):
-        """Enhanced instruction parsing"""
+        """Complete instruction parsing"""
         parts = re.split(r'[,\s()]+', line.strip().upper())
         parts = [p for p in parts if p]
         opcode = parts[0]
@@ -300,7 +339,7 @@ class TomasuloSimulator:
             raise ValueError(f"Unknown opcode: {opcode}")
 
     def initialize_reservation_stations(self):
-        """Initialize reservation stations based on configuration"""
+        """Initialize reservation stations"""
         self.res_stations.clear()
 
         for op_type, (rs_entry, cycles_entry) in self.hw_config_entries.items():
@@ -322,12 +361,12 @@ class TomasuloSimulator:
         return True
 
     def load_program(self):
-        """Enhanced program loading with memory initialization"""
+        """Complete program loading"""
         try:
             if not self.initialize_reservation_stations():
                 return
 
-            # Reset simulator state
+            # Reset state
             self.cycle = 1
             self.program.clear()
             self.instructions.clear()
@@ -371,38 +410,245 @@ class TomasuloSimulator:
             messagebox.showerror("Error", f"Failed to load program: {e}")
 
     def step(self):
-        """Placeholder step function - simulation logic to be added"""
+        """Complete single step simulation"""
+        if not self.instructions and all(not rs.busy for rs_list in self.res_stations.values() for rs in rs_list):
+            self.show_results()
+            return
+        self.simulate_cycle()
         self.cycle += 1
         self.update_display()
 
     def run_to_end(self):
-        """Placeholder run function"""
-        messagebox.showinfo("Info", "Run to end functionality will be implemented in next version")
+        """Complete run to end simulation"""
+        while self.instructions or any(rs.busy for rs_list in self.res_stations.values() for rs in rs_list):
+            self.simulate_cycle()
+            self.cycle += 1
+        self.update_display()
+        self.show_results()
+
+    def simulate_cycle(self):
+        """Complete simulation cycle implementation"""
+        # Check for maximum cycle limit
+        if self.cycle > self.max_cycles:
+            messagebox.showerror("Error", f"Simulation stopped: Maximum cycle limit ({self.max_cycles}) reached.")
+            self.instructions.clear()
+            self.pending_control_flow = False
+            for rs_list in self.res_stations.values():
+                for rs in rs_list:
+                    rs.clear()
+            return
+
+        # Clear reservation stations that wrote results in previous cycle
+        for rs_list in self.res_stations.values():
+            for rs in rs_list:
+                if rs.wrote_result:
+                    rs.clear()
+
+        # Write stage: broadcast results on CDB
+        completed = []
+        for rs_list in self.res_stations.values():
+            for rs in rs_list:
+                if rs.busy and rs.executing and rs.cycles_left <= 0 and not rs.wrote_result:
+                    completed.append(rs)
+
+        if completed:
+            for rs in completed:
+                instr = rs.instruction
+                instr.write_cycle = self.cycle
+                result = None
+                dest_reg = None
+
+                # Execute instruction logic
+                if instr.opcode == 'LOAD':
+                    addr = rs.vj + rs.a
+                    result = self.memory[addr]
+                    dest_reg = int(instr.operands[0][1:])
+                elif instr.opcode in ('ADD', 'SUB', 'NOR', 'MUL'):
+                    rB, rC = rs.vj, rs.vk
+                    if instr.opcode == 'ADD':
+                        result = (rB + rC) & 0xFFFF
+                    elif instr.opcode == 'SUB':
+                        result = (rB - rC) & 0xFFFF
+                    elif instr.opcode == 'NOR':
+                        result = (~(rB | rC)) & 0xFFFF
+                    elif instr.opcode == 'MUL':
+                        result = (rB * rC) & 0xFFFF
+                    dest_reg = int(instr.operands[0][1:])
+                elif instr.opcode == 'STORE':
+                    addr = rs.vj + rs.a
+                    self.memory[addr] = rs.vk
+
+                # Broadcast on CDB
+                if result is not None and dest_reg is not None:
+                    if self.register_status[dest_reg] == rs.name:
+                        self.registers[dest_reg] = result
+                        self.register_status[dest_reg] = None
+                    
+                    # Update other reservation stations
+                    for rs_list in self.res_stations.values():
+                        for other_rs in rs_list:
+                            if other_rs.qj == rs.name:
+                                other_rs.vj = result
+                                other_rs.qj = None
+                                other_rs.just_wrote = True
+                            if other_rs.qk == rs.name:
+                                other_rs.vk = result
+                                other_rs.qk = None
+                                other_rs.just_wrote = True
+
+                # Handle control flow for BEQ (simplified)
+                if instr.opcode == 'BEQ':
+                    rA, rB = rs.vj, rs.vk
+                    self.branch_count += 1
+                    if rA == rB:  # Taken
+                        self.mispredictions += 1
+                        target_pc = instr.pc + 1 + (instr.operands[2] - 1)
+                        self.current_pc = target_pc
+                        self.instructions.clear()
+                        # Reload instructions from new PC (simplified)
+                    else:
+                        self.current_pc = instr.pc + 1
+                    self.pending_control_flow = False
+
+                instr.completed = True
+                self.completed_instructions += 1
+                rs.wrote_result = True
+
+        # Execute stage
+        for rs_list in self.res_stations.values():
+            for rs in rs_list:
+                if rs.busy and not rs.executing and rs.qj is None and rs.qk is None and not rs.just_wrote:
+                    rs.executing = True
+                    rs.cycles_left = rs.exec_cycles
+                    rs.instruction.start_exec_cycle = self.cycle
+                elif rs.executing and rs.cycles_left > 0:
+                    rs.cycles_left -= 1
+                    if rs.cycles_left == 0:
+                        rs.instruction.end_exec_cycle = self.cycle
+                rs.just_wrote = False
+
+        # Issue stage
+        if self.instructions and not self.pending_control_flow:
+            instr = self.instructions[0]
+            rs_type = self.op_to_rs[instr.opcode]
+            rs_list = self.res_stations[rs_type]
+            free_rs = next((rs for rs in rs_list if not rs.busy), None)
+            
+            if free_rs:
+                self.instructions.popleft()
+                free_rs.busy = True
+                free_rs.instruction = instr
+                instr.issue_cycle = self.cycle
+
+                # Set up reservation station based on instruction type
+                if instr.opcode == 'LOAD':
+                    rB_idx = int(instr.operands[1][1:])
+                    free_rs.a = instr.operands[2]
+                    if self.register_status[rB_idx]:
+                        free_rs.qj = self.register_status[rB_idx]
+                    else:
+                        free_rs.vj = self.registers[rB_idx]
+                    dest_idx = int(instr.operands[0][1:])
+                    self.register_status[dest_idx] = free_rs.name
+                elif instr.opcode == 'STORE':
+                    rA_idx = int(instr.operands[0][1:])
+                    rB_idx = int(instr.operands[1][1:])
+                    free_rs.a = instr.operands[2]
+                    if self.register_status[rB_idx]:
+                        free_rs.qj = self.register_status[rB_idx]
+                    else:
+                        free_rs.vj = self.registers[rB_idx]
+                    if self.register_status[rA_idx]:
+                        free_rs.qk = self.register_status[rA_idx]
+                    else:
+                        free_rs.vk = self.registers[rA_idx]
+                elif instr.opcode == 'BEQ':
+                    rA_idx, rB_idx = int(instr.operands[0][1:]), int(instr.operands[1][1:])
+                    if self.register_status[rA_idx]:
+                        free_rs.qj = self.register_status[rA_idx]
+                    else:
+                        free_rs.vj = self.registers[rA_idx]
+                    if self.register_status[rB_idx]:
+                        free_rs.qk = self.register_status[rB_idx]
+                    else:
+                        free_rs.vk = self.registers[rB_idx]
+                    self.pending_control_flow = True
+                elif instr.opcode in ('ADD', 'SUB', 'NOR', 'MUL'):
+                    rB_idx, rC_idx = int(instr.operands[1][1:]), int(instr.operands[2][1:])
+                    dest_idx = int(instr.operands[0][1:])
+                    if self.register_status[rB_idx]:
+                        free_rs.qj = self.register_status[rB_idx]
+                    else:
+                        free_rs.vj = self.registers[rB_idx]
+                    if self.register_status[rC_idx]:
+                        free_rs.qk = self.register_status[rC_idx]
+                    else:
+                        free_rs.vk = self.registers[rC_idx]
+                    self.register_status[dest_idx] = free_rs.name
 
     def update_display(self):
-        """Update GUI display elements"""
+        """Complete display update"""
         self.cycle_label.configure(text=f"Cycle: {self.cycle}")
         self.pc_label.configure(text=f"Current PC: {self.current_pc}")
-        
-        # Clear instructions tree
-        for item in self.instr_tree.get_children():
-            self.instr_tree.delete(item)
-        
-        # Update instructions display
+
+        # Clear all trees
+        for tree in [self.rs_tree, self.reg_tree, self.mem_tree, self.instr_tree]:
+            for item in tree.get_children():
+                tree.delete(item)
+
+        # Update Reservation Stations
+        rs_parents = {}
+        for rs_type, rs_list in self.res_stations.items():
+            rs_parents[rs_type] = self.rs_tree.insert("", "end", text=rs_type, open=True)
+            for rs in rs_list:
+                op = rs.instruction.opcode if rs.busy and rs.instruction else ""
+                status = "Wrote" if rs.wrote_result else "Executing" if rs.executing else "Waiting" if rs.busy else ""
+                
+                values = [rs.name, "Yes" if rs.busy else "No", op,
+                         rs.vj if rs.vj is not None else "",
+                         rs.vk if rs.vk is not None else "",
+                         rs.qj if rs.qj is not None else "",
+                         rs.qk if rs.qk is not None else "",
+                         rs.a if rs.a is not None else "",
+                         status, rs.cycles_left if rs.busy else ""]
+                self.rs_tree.insert(rs_parents[rs_type], "end", values=values)
+
+        # Update Registers
+        for i, (val, qi) in enumerate(zip(self.registers, self.register_status)):
+            self.reg_tree.insert("", "end", text=f"R{i}", values=(val, qi or "-"))
+
+        # Update Memory
+        for addr, val in sorted(self.memory.items()):
+            if val != 0:
+                self.mem_tree.insert("", "end", text=str(addr), values=(val,))
+
+        # Update Instructions
         for instr in self.program:
-            values = (
-                instr.pc,
-                f"{instr.opcode} {' '.join(map(str, instr.operands))}",
-                instr.issue_cycle or "-",
-                instr.start_exec_cycle or "-",
-                instr.end_exec_cycle or "-",
-                instr.write_cycle or "-"
-            )
+            values = (instr.pc, f"{instr.opcode} {' '.join(map(str, instr.operands))}",
+                     instr.issue_cycle or "-", instr.start_exec_cycle or "-",
+                     instr.end_exec_cycle or "-", instr.write_cycle or "-")
             self.instr_tree.insert("", "end", text="", values=values)
+
+    def show_results(self):
+        """Basic results display"""
+        total_cycles = self.cycle
+        ipc = self.completed_instructions / total_cycles if total_cycles > 0 else 0
+        mispred_pct = (self.mispredictions / self.branch_count * 100) if self.branch_count > 0 else 0
+
+        result_text = f"""Simulation Complete!
+
+Total Cycles: {total_cycles}
+Instructions Completed: {self.completed_instructions}
+IPC: {ipc:.2f}
+Conditional Branches: {self.branch_count}
+Branch Mispredictions: {self.mispredictions}
+Misprediction Percentage: {mispred_pct:.2f}%"""
+
+        messagebox.showinfo("Simulation Results", result_text)
 
 if __name__ == "__main__":
     root = tk.Tk()
-    root.title("Tomasulo Simulator - Day 2")
+    root.title("Tomasulo Simulator - Day 3")
     root.geometry("1200x800")
     app = TomasuloSimulator(root)
     root.mainloop()
