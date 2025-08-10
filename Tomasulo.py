@@ -4,7 +4,7 @@ import re
 from collections import defaultdict, deque
 import platform
 
-# Complete color theme with all styling
+# Color theme
 COLORS = {
     'bg': '#f0f0f0',
     'fg': '#333333',
@@ -74,7 +74,7 @@ class ReservationStation:
                 f"{status} "
                 f"CyclesLeft={self.cycles_left}")
 
-# Final Simulator class with all features and polish
+# Simulator class
 class TomasuloSimulator:
     def __init__(self, root):
         self.root = root
@@ -724,15 +724,13 @@ class TomasuloSimulator:
         self.show_results()
 
     def simulate_cycle(self):
-        # Complete simulation cycle implementation from original file
-        # This is the most complex part with full write stage, execute stage, and issue stage
-        # [Implementation matches the original p2.py file exactly]
-        
         # Check for maximum cycle limit
         if self.cycle > self.max_cycles:
-            messagebox.showerror("Error", f"Simulation stopped: Maximum cycle limit ({self.max_cycles}) reached.")
+            messagebox.showerror("Error", f"Simulation stopped: Maximum cycle limit ({self.max_cycles}) reached. This may indicate an infinite loop or a very long-running program.")
+            # Reset simulator state
             self.instructions.clear()
             self.pending_control_flow = False
+            # Clear all reservation stations
             for rs_list in self.res_stations.values():
                 for rs in rs_list:
                     rs.clear()
@@ -748,6 +746,7 @@ class TomasuloSimulator:
         completed = []
         for rs_list in self.res_stations.values():
             for rs in rs_list:
+                # Fixed condition: ensure we only consider stations that have finished executing but haven't written yet
                 if rs.busy and rs.executing and rs.cycles_left <= 0 and not rs.wrote_result:
                     completed.append(rs)
 
@@ -776,10 +775,11 @@ class TomasuloSimulator:
                 elif instr.opcode == 'CALL':
                     result = instr.pc + 1
                     dest_reg = 1  # R1
-                    self.current_pc = instr.operands[0]
+                    self.current_pc = instr.operands[0]  # Branch directly to label address
                     
                     # Clear instruction queue and reload instructions from new PC
                     self.instructions.clear()
+                    # Find the instruction with the target PC and add all subsequent instructions
                     found_target = False
                     for prog_instr in self.program:
                         if prog_instr.pc == instr.operands[0]:
@@ -788,17 +788,33 @@ class TomasuloSimulator:
                             self.instructions.append(prog_instr)
                     self.pending_control_flow = False
                 elif instr.opcode == 'RET':
-                    return_address = rs.vj
+                    return_address = rs.vj  # Branch to address in R1
                     self.current_pc = return_address
+                    
+                    if self.debug_trace:
+                        print(f"\nRET instruction: Return address = {return_address}")
                     
                     # Clear instruction queue and reload instructions from new PC
                     self.instructions.clear()
+                    # Find the instruction with the target PC and add all subsequent instructions
                     found_target = False
                     for prog_instr in self.program:
                         if prog_instr.pc == return_address:
                             found_target = True
+                            if self.debug_trace:
+                                print(f"Found return target at PC={prog_instr.pc}: {prog_instr.opcode}")
                         if found_target:
                             self.instructions.append(prog_instr)
+                            if self.debug_trace:
+                                print(f"Adding to queue: PC={prog_instr.pc} {prog_instr.opcode} {prog_instr.operands}")
+                    
+                    if self.debug_trace:
+                        print(f"Instruction queue after RET has {len(self.instructions)} instructions")
+                        if len(self.instructions) == 0:
+                            print("WARNING: Empty instruction queue after RET!")
+                            for i, prog_instr in enumerate(self.program):
+                                print(f"Program[{i}]: PC={prog_instr.pc} {prog_instr.opcode}")
+                    
                     self.pending_control_flow = False
                 elif instr.opcode == 'STORE':
                     addr = rs.vj + rs.a
@@ -814,30 +830,34 @@ class TomasuloSimulator:
                             if other_rs.qj == rs.name:
                                 other_rs.vj = result
                                 other_rs.qj = None
-                                other_rs.just_wrote = True
+                                other_rs.just_wrote = True  # Mark that this RS just received a result
                             if other_rs.qk == rs.name:
                                 other_rs.vk = result
                                 other_rs.qk = None
-                                other_rs.just_wrote = True
+                                other_rs.just_wrote = True  # Mark that this RS just received a result
 
                 # Handle control flow
                 if instr.opcode == 'BEQ':
                     rA, rB = rs.vj, rs.vk
                     self.branch_count += 1
-                    target_pc = instr.pc + 1 + (instr.operands[2] - 1)
-                    if target_pc < 0:
-                        messagebox.showerror("Error", f"Invalid branch target: PC cannot be negative")
+                    target_pc = instr.pc + 1 + (instr.operands[2] - 1)  # Subtract 1 from the offset
+                    if target_pc < 0:  # Check for negative PC
+                        messagebox.showerror("Error", f"Invalid branch target: PC cannot be negative (attempted to branch to {target_pc})")
+                        # Reset simulator state
                         self.instructions.clear()
                         self.pending_control_flow = False
+                        # Clear all reservation stations
                         for rs_list in self.res_stations.values():
                             for rs in rs_list:
                                 rs.clear()
                         return
                     
                     if rA == rB:  # Taken
-                        self.mispredictions += 1
+                        self.mispredictions += 1  # Always not taken predictor
                         self.current_pc = target_pc
+                        # Clear instruction queue and reload instructions from new PC
                         self.instructions.clear()
+                        # Find the instruction with the target PC and add all subsequent instructions
                         found_target = False
                         for instr in self.program:
                             if instr.pc == target_pc:
@@ -847,14 +867,21 @@ class TomasuloSimulator:
                     else:
                         self.current_pc = instr.pc + 1
                     self.pending_control_flow = False
+                elif instr.opcode == 'STORE':
+                    addr = rs.vj + rs.a
+                    self.memory[addr] = rs.vk
 
+                # Mark completion for all instruction types
                 instr.completed = True
                 self.completed_instructions += 1
+                
+                # Mark the RS as having written its result, but don't clear it yet
                 rs.wrote_result = True
 
         # Execute stage
         for rs_list in self.res_stations.values():
             for rs in rs_list:
+                # Only start execution if not just wrote in this cycle
                 if rs.busy and not rs.executing and rs.qj is None and rs.qk is None and not rs.just_wrote:
                     rs.executing = True
                     rs.cycles_left = rs.exec_cycles
@@ -863,6 +890,7 @@ class TomasuloSimulator:
                     rs.cycles_left -= 1
                     if rs.cycles_left == 0:
                         rs.instruction.end_exec_cycle = self.cycle
+                # Reset just_wrote flag at the end of the cycle
                 rs.just_wrote = False
 
         # Issue stage
@@ -899,6 +927,8 @@ class TomasuloSimulator:
                         free_rs.qk = self.register_status[rA_idx]
                     else:
                         free_rs.vk = self.registers[rA_idx]
+                    # STORE should not block subsequent instructions from issuing
+                    # self.pending_control_flow = True
                 elif instr.opcode == 'BEQ':
                     rA_idx, rB_idx = int(instr.operands[0][1:]), int(instr.operands[1][1:])
                     if self.register_status[rA_idx]:
