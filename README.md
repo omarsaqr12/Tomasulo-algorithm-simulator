@@ -109,11 +109,6 @@ At the end of simulation, the program shows:
 - R0 is always **0** and cannot be changed.
 - Single-issue pipeline.
 
----
-
-## 👨‍💻 Authors
-- *Your Name* – *Your Student ID*  
-- *Partner Name* – *Partner Student ID*
 
 ---
 
