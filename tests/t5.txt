@@ -1,0 +1,3 @@
+LOAD R1, 0(R2)
+ADD R3, R1, R4
+BEQ R0, R0, -10

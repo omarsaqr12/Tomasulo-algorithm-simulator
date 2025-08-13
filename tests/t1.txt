@@ -1,0 +1,9 @@
+LOAD R1, 0(R2)
+ADD R3, R1, R4
+BEQ R3, R0, 2
+MUL R5, R3, R1
+STORE R5, 0(R2)
+
+
+0:10
+1:20
