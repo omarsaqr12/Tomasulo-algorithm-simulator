@@ -1,8 +1,18 @@
+"""
+femTomas - Out-of-Order Processor Simulator.
+
+A cycle-accurate simulator of Tomasulo's algorithm for a simplified 16-bit RISC
+processor, with an interactive Tkinter GUI. Models out-of-order execution via
+reservation stations, register renaming, and a common data bus (CDB), and
+reports performance metrics (total cycles, IPC, branch-misprediction rate).
+
+Run with: python tomasulo_simulator.py
+"""
+
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
 import re
 from collections import defaultdict, deque
-import platform
 
 # Color theme
 COLORS = {
@@ -167,8 +177,8 @@ class TomasuloSimulator:
         # Configure tooltips
         self.tooltips = {}
 
-        # Add debugging flag
-        self.debug_trace = True
+        # Add debugging flag (set True to print control-flow traces to the console)
+        self.debug_trace = False
 
         # GUI setup
         self.setup_gui()
