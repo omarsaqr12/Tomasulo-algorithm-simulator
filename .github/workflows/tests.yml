@@ -1,0 +1,15 @@
+name: Tomasulo headless checks
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tkinter import dependency
+        run: sudo apt-get update && sudo apt-get install -y python3-tk
+      - name: Compile Python syntax
+        run: python3 -m py_compile tomasulo_simulator.py tests/test_headless.py
+      - name: Run headless tests (known gaps are expected failures)
+        run: python3 -m unittest discover -s tests -v

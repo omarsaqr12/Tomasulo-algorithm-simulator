@@ -1,133 +1,49 @@
-# femTomas — Out-of-Order Processor Simulator
+# femTomas: Tomasulo teaching simulator
 
-> A cycle-accurate simulator of the **Tomasulo algorithm** for a 16-bit RISC processor, with an interactive GUI for visualizing out-of-order execution cycle by cycle.
+A Python/Tkinter visualization of **in-order issue and potentially out-of-order execution** for a simplified 16-bit RISC-like instruction set. Step through reservation-station occupancy, operand tags, register renaming, memory state, and instruction timing. Developed as a computer-architecture coursework project; it is an educational model rather than a verified processor or a measured hardware implementation.
 
-<p>
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.8%2B-blue?logo=python&logoColor=white">
-  <img alt="GUI" src="https://img.shields.io/badge/GUI-Tkinter-orange">
-  <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-none-brightgreen">
-  <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
-</p>
+## What to inspect
 
----
+The single application module, [`tomasulo_simulator.py`](tomasulo_simulator.py), defines `Instruction` (timing and operands), `ReservationStation` (operand/tag and latency state), and `TomasuloSimulator` (Tk GUI plus simulation scheduler). Its `simulate_cycle()` clears old stations, writes completed results, advances execution, and issues at most one instruction. Operand tags forward results to dependent stations; `BEQ`, `CALL`, and `RET` hold further issue while control flow resolves. The GUI shows reservation stations, registers, nonzero memory, and per-instruction timing.
 
-## Overview
+This project is useful for *exploring* RAW dependencies, dynamic scheduling and branch behavior. The implementation's schedule and performance statistics have **not** been independently compared against a reference processor model. In particular, do not interpret its output as validated cycle-accurate hardware behavior.
 
-**femTomas** models how a modern superscalar CPU executes instructions **out of order** while preserving correct program semantics. It implements [Tomasulo's algorithm](https://en.wikipedia.org/wiki/Tomasulo%27s_algorithm) — the same dynamic-scheduling technique used in real processors — including **reservation stations**, **register renaming**, and a **common data bus (CDB)** for result forwarding.
+## Run the GUI
 
-The simulator runs a small RISC assembly program and lets you **step through it one cycle at a time** (or run to completion), watching reservation stations fill, dependencies resolve, and results broadcast on the CDB. It then reports performance metrics such as IPC and branch-misprediction rate.
+Python 3 with Tkinter is required (on Debian/Ubuntu, install `python3-tk`). There are no other third-party Python packages.
 
-Built as a deep-dive into computer architecture (CSCE 3301 – Computer Architecture).
-
-## What it demonstrates
-
-- **Dynamic scheduling** with Tomasulo's algorithm (out-of-order issue, execute, and write-back)
-- **Register renaming** via per-register status tags (`Qi`) + reservation-station tags, eliminating WAR and WAW hazards
-- **Dependency tracking** (RAW hazards) through `Qj`/`Qk` operand tags and CDB result forwarding
-- **Cycle-accurate timing** of each instruction's issue / execute / write stages
-- Configurable microarchitecture (functional-unit latencies and reservation-station counts)
-- A clear, didactic **GUI** that makes the internal CPU state observable
-
-## Features
-
-- **Cycle-by-cycle stepping** or **run-to-completion** execution
-- Live views of:
-  - Reservation Stations (busy state, operands, tags, status, cycles remaining)
-  - Register file (values + `Qi` rename tags)
-  - Memory (non-zero locations)
-  - Per-instruction timing table (Issue / Start Exec / End Exec / Write)
-- **Configurable hardware**:
-  - Number of reservation stations per instruction class
-  - Execution latency per functional unit
-- **Performance metrics**: total cycles, IPC (instructions per cycle), and branch-misprediction percentage
-- **Non-speculative** execution with an *Always-Not-Taken* branch policy (branches resolve before dependent control flow proceeds)
-- Zero external dependencies — pure Python standard library + Tkinter
-
-## Instruction Set
-
-A simplified 16-bit RISC ISA with 8 registers (`R0`–`R7`, where `R0` is hardwired to 0).
-
-| Category             | Instruction            | Description                         |
-| -------------------- | ---------------------- | ----------------------------------- |
-| **Load/Store**       | `LOAD rA, offset(rB)`  | Load word from memory into `rA`.    |
-|                      | `STORE rA, offset(rB)` | Store `rA` value into memory.       |
-| **Conditional**      | `BEQ rA, rB, offset`   | Branch if `rA == rB`.               |
-| **Call/Return**      | `CALL label`           | Store `PC+1` in `R1` and jump to label. |
-|                      | `RET`                  | Return to address in `R1`.          |
-| **Arithmetic/Logic** | `ADD rA, rB, rC`       | `rA = rB + rC`                      |
-|                      | `SUB rA, rB, rC`       | `rA = rB - rC`                      |
-|                      | `NOR rA, rB, rC`       | `rA = ~(rB \| rC)`                  |
-|                      | `MUL rA, rB, rC`       | `rA = (rB × rC) mod 2¹⁶`            |
-
-## Getting Started
-
-### Prerequisites
-
-- Python **3.8+**
-- Tkinter (bundled with standard Python on Windows/macOS; on Debian/Ubuntu install via `sudo apt install python3-tk`)
-
-### Run
-
-```bash
+```sh
 git clone https://github.com/omarsaqr12/Tomasulo-algorithm-simulator.git
 cd Tomasulo-algorithm-simulator
-python tomasulo_simulator.py
+python3 tomasulo_simulator.py
 ```
 
-Then, in the GUI:
+Paste instructions into **Assembly Program**, and optional `address:value` lines into **Memory**. Choose a starting PC and positive reservation-station counts/latencies, click **Load Program**, then **Step** or **Run to End**. Avoid arbitrary code execution or unbounded programs: the UI becomes unresponsive while running to completion. The existing cycle safeguard is not a fully verified termination guarantee.
 
-1. Enter (or paste) an assembly program — one instruction per line.
-2. Set the starting PC.
-3. Optionally initialize memory (`address:value`, one per line).
-4. Configure reservation-station counts and execution latencies.
-5. Click **Load Program**, then **Step** through cycle by cycle or **Run to End**.
+For a first demonstration, use the assembly and memory sections in [`examples/t1.txt`](examples/t1.txt) separately. The example files are **not** a direct file-import format; there is no GUI file loader. See [`examples/README.md`](examples/README.md) for cases and caveats.
 
-Sample programs live in [`examples/`](examples/) — see [`examples/README.md`](examples/README.md) for the input format.
+### ISA syntax
 
-## How it works
+| Form | Intent |
+| --- | --- |
+| `LOAD R1, 0(R2)` / `STORE R1, 0(R2)` | Load or store at `R2 + offset` |
+| `ADD R3, R1, R2`, `SUB`, `NOR`, `MUL` | Two-register arithmetic or bitwise operation |
+| `BEQ R1, R2, 2` | Conditional branch, using the implementation's `instruction_PC + offset` target |
+| `CALL 5` / `RET` | Absolute call target, save return PC to R1, return via R1 |
 
-Each simulated cycle advances four pipeline activities in Tomasulo order:
+`CALL` accepts an integer in the signed seven-bit range -64..63 but not every such target refers to a valid program instruction. Register indices, memory addresses, and branch targets are not comprehensively validated. Arithmetic operations mask results to 16 bits; displayed results are **not consistently signed-normalized**. The README does not imply a formally specified ISA.
 
-1. **Issue** — the next in-order instruction is placed into a free reservation station of the matching type. Source operands are read either as values (if ready) or as **tags** pointing at the producing station; the destination register is renamed to this station.
-2. **Execute** — a station begins executing once both operands are available, counting down its functional-unit latency. Independent instructions execute **out of order**.
-3. **Write** — on completion, the result is broadcast on the **common data bus**, updating the register file and any waiting reservation stations in the same cycle.
-4. **Commit of control flow** — branches/`CALL`/`RET` resolve at write-back; mispredictions (under the Always-Not-Taken policy) redirect the instruction stream.
+## Verification and known limitations
 
-This design naturally removes false (WAR/WAW) dependencies through renaming while honoring true (RAW) dependencies through tag-based forwarding.
+Run the new headless checks using `python3 -m unittest discover -s tests -v`. They cover instruction parsing and a load-to-add dependency without opening a display. Two documented architectural-invariant checks are marked `expectedFailure`: writes to R0 can change its value, and more than one completed result can write in a cycle despite the README's earlier single-CDB implication. Expected failures are **known bugs, not passes**. See [`docs/AUDIT.md`](docs/AUDIT.md) for their evidence and other risks.
 
-### Default microarchitecture
+Additional unverified areas include load/store ordering, loops/repeated dynamic instructions (program instruction objects are reused), branch/call/return edge cases, invalid register names, accurate timing/IPC accounting, memory bounds and GUI interactions. The mouse-hover callback currently invokes a nonexistent Tkinter `Treeview.set_tag_configure()` method, which may raise on hover. There is no claim of complete ISA conformance, superscalar issue, speculative execution, hardware synthesis, or benchmarked speedup.
 
-| Unit            | Reservation Stations | Execution Latency (cycles) |
-| --------------- | :------------------: | :------------------------: |
-| Load            | 2                    | 6 (2 address + 4 memory)   |
-| Store           | 2                    | 6 (2 address + 4 memory)   |
-| Branch (`BEQ`)  | 2                    | 1                          |
-| Call/Return     | 1                    | 1                          |
-| Add/Sub         | 4                    | 2                          |
-| NOR             | 2                    | 1                          |
-| Multiply        | 2                    | 10                         |
+## Repository map and provenance
 
-All values are editable in the GUI before loading a program.
+- [`tomasulo_simulator.py`](tomasulo_simulator.py) — full GUI and simulation implementation.
+- [`tests/test_headless.py`](tests/test_headless.py) — headless smoke and documented known-gap tests.
+- [`examples/`](examples/) — coursework-era assembly/memory scenarios; some are intentionally invalid or contain comments unsupported by the input parser.
+- [`femTomas-Design-Report.docx`](femTomas-Design-Report.docx) — original design report (historical artifact, not independent validation).
 
-## Project Structure
-
-```
-.
-├── tomasulo_simulator.py        # Simulator core + Tkinter GUI
-├── examples/                    # Sample assembly programs & memory inputs
-│   └── README.md                # Input-format guide
-├── femTomas-Design-Report.docx  # Detailed design report
-└── README.md
-```
-
-## Assumptions & Limitations
-
-- **Non-speculative**: a branch must resolve before dependent control flow continues.
-- **Always-Not-Taken** branch prediction (mispredictions are counted and reported).
-- Memory and registers are **16-bit signed integers**.
-- `R0` is hardwired to **0**.
-- **Single-issue** front end (one instruction issued per cycle).
-
-## License
-
-Released under the [MIT License](LICENSE).
+Contributions beyond the repository's visible authorship history cannot be reliably separated among collaborators from the available source. Code is distributed under the existing [MIT License](LICENSE); check the report's reuse terms separately.
